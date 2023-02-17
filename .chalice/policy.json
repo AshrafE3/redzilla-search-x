@@ -1,0 +1,47 @@
+{
+    "Version": "2012-10-17",
+    "Statement": [
+      {
+        "Effect": "Allow",
+        "Action": [
+          "dynamodb:BatchWriteItem",
+          "dynamodb:Query"
+        ],
+        "Resource": [
+          "*"
+        ],
+        "Sid": "4a56e20709134ee8824439dab60be5e2"
+      },
+      {
+        "Effect": "Allow",
+        "Action": [
+          "s3:GetObject",
+          "s3:ListBucket"
+        ],
+        "Resource": [
+          "*"
+        ],
+        "Sid": "685bf7a004ab4686b6088b95e2a46411"
+      },
+      {
+        "Effect": "Allow",
+        "Action": [
+          "lambda:InvokeFunction"
+        ],
+        "Resource": [
+          "*"
+        ],
+        "Sid": "685bf7a004ab4686b6088b95e2a46412"
+      },
+      {
+        "Effect": "Allow",
+        "Action": [
+          "logs:*"
+        ],
+        "Resource": [
+          "*"
+        ],
+        "Sid": "685bf7a004ab4686b6088b95e2a46413"
+      }
+    ]
+  }

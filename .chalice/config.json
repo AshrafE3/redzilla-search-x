@@ -1,0 +1,16 @@
+{
+  "version": "2.0",
+  "app_name": "homesearch",
+  "autogen_policy": false,
+  "iam_policy_file": "policy.json",
+  "stages": {
+    "dev": {
+      "api_gateway_stage": "api",
+      "environment_variables": {
+        "S3_BUCKET": "test-california-rets-bucket",
+        "DYNAMO_TABLE": "test-rets-search",
+        "S3_HANDLER": "homesearch-dev-handle_s3_event"
+      }
+    }
+  }
+}
