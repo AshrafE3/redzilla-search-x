@@ -1,7 +1,7 @@
 from chalice import Chalice, Response
-
 from chalicelib.zipinfo import is_valid_zipcode, bounding_rectangle
 from chalicelib.database import dynamo_query, expand
+import json
 
 app = Chalice(app_name='homesearch')
 
@@ -43,12 +43,62 @@ def prepare(json):
     return json
 
 
+def photo_uri(sdata):
+    if 'ListingKeyNumeric' in sdata:
+        source = 'CRMLS'
+        photo_id = sdata['ListingKeyNumeric']
+        listing_id = sdata['ListingId']
+    else:
+        source = 'SDMLS'
+        photo_id = sdata['SystemID']
+        listing_id = sdata['Listingid']
+    return f"/main/{source}/{listing_id}/{photo_id}/{sdata['PhotosChangeTimestamp']}/360/360"  # noqa
+
+
+def address(sdata):
+    return sdata.get('Address', None) or ' '.join(
+            filter(None, [
+                sdata.get('StreetNumber', None),
+                sdata.get('StreetDirPrefix', None),
+                sdata.get('StreetDirSuffix', None),
+                sdata.get('StreetName', None),
+                sdata.get('StreetSuffix', None),
+                sdata.get('StreetSuffixModifier', None)]))
+
+
 @app.route('/search-x.api', methods=['POST'], cors=True)
 def search():
     query_parameters = prepare(app.current_request.json_body)
     result = dynamo_query(query_parameters)
     print("len(result) =", len(result))
-    print("result[0] = ", result[0])
+
     expanded = expand(i['id'] for i in result)
-    print("expanded[0] = ", expanded[0])
-    return Response(body=result, status_code=200)
+    print("expanded[0] = ", json.dumps(expanded[0], indent=4, default=str))
+
+    response = [{
+        'id': item['id'],
+        'photoUri': photo_uri(item['standard_data']),
+        'latitude': float(item['latitude']),
+        'longitude': float(item['longitude']),
+        'displayPrice': int(float(item['standard_data']['ListPrice'])),
+        'status': item['status'],
+        'bedrooms': int(item['bedroomsTotal']),
+        'fullBathrooms': (
+            int(item['bathroomsTotalInteger']) -
+            int(item['standard_data'].get('BathroomsHalf', '0'))
+        ),
+        'halfBathrooms': int(item['standard_data'].get('BathroomsHalf', '0')),
+        'squareFeet': int(item['livingArea']),
+        'address': address(item['standard_data']),
+        'city': item['standard_data']['City'],
+        'state': item['standard_data']['StateOrProvince'],
+        'unit': (item['standard_data'].get('UnitNumber', None) or
+                 item['standard_data'].get('StreetAdditionalInfo', None)),
+        'zip': int(item['postalCode'])
+    } for item in expanded]
+
+    for item in response:
+        if item['unit'] is None:
+            del item['unit']
+
+    return Response(body=response, status_code=200)
