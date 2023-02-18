@@ -1,13 +1,19 @@
+from typing import List
 import boto3
+from boto3.dynamodb.types import TypeDeserializer
 import os
+import gzip
+import json
 
 
-# Create a DynamoDB client
 dynamodb = boto3.client('dynamodb')
-
-# Define the S3 bucket and DynamoDB table
 table_name = os.environ['DYNAMO_TABLE']
 index_name = 'latitude-longitude-index'
+deser = TypeDeserializer()
+
+
+def deserialize(dynamodb_json):
+    return {k: deser.deserialize(v) for k, v in dynamodb_json.items()}
 
 
 def latitude_box_values(min_lat, max_lat):
@@ -91,6 +97,32 @@ def dynamo_query(query_parameters):
         response = dynamodb.query(**query)
         print("response n = ", len(response['Items']))
 
-        result += response['Items']
+        result += map(deserialize, response['Items'])
 
     return result
+
+
+def expand(id: List[str]) -> List[dict]:
+    id = list(id)
+
+    chunked_ids = [id[i:i+100] for i in range(0, len(id), 100)]
+    items = []
+    for chunk in chunked_ids:
+        response = dynamodb.batch_get_item(
+            RequestItems={
+                table_name: {
+                    'Keys': [{'id': {'S': i}} for i in chunk]
+                }
+            }
+        )
+        items.extend(response['Responses'][table_name])
+
+    items = [{
+        **{k: v for k, v in item.items() if k != 'standard_data_gz'},
+        'standard_data': json.loads(gzip.decompress(
+            item['standard_data_gz'].value
+        ).decode('utf-8'))
+     } for item in map(deserialize, items)
+    ]
+
+    return items
