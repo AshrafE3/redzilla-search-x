@@ -1,12 +1,12 @@
 from chalice import Chalice, Response
 from chalicelib.zipinfo import is_valid_zipcode, bounding_rectangle
-from chalicelib.database import dynamo_query, expand
-import json
+from chalicelib.database import dynamo_query
 
 app = Chalice(app_name='homesearch')
 
 
 def prepare(json):
+    json = {**json}
     print('RAW REQUEST = ', json)
     json['webAvailable'] = json['availableOnly'] == 1
     del json['availableOnly']
@@ -43,27 +43,11 @@ def prepare(json):
     return json
 
 
-def photo_uri(sdata):
-    if 'ListingKeyNumeric' in sdata:
-        source = 'CRMLS'
-        photo_id = sdata['ListingKeyNumeric']
-        listing_id = sdata['ListingId']
+def photoUri(item):
+    if 'photoUriPath' in item:
+        return '/main' + item['photoUriPath'] + '/360/360'
     else:
-        source = 'SDMLS'
-        photo_id = sdata['SystemID']
-        listing_id = sdata['Listingid']
-    return f"/main/{source}/{listing_id}/{photo_id}/{sdata['PhotosChangeTimestamp']}/360/360"  # noqa
-
-
-def address(sdata):
-    return sdata.get('Address', None) or ' '.join(
-            filter(None, [
-                sdata.get('StreetNumber', None),
-                sdata.get('StreetDirPrefix', None),
-                sdata.get('StreetDirSuffix', None),
-                sdata.get('StreetName', None),
-                sdata.get('StreetSuffix', None),
-                sdata.get('StreetSuffixModifier', None)]))
+        return None
 
 
 @app.route('/search-x.api', methods=['POST'], cors=True)
@@ -72,30 +56,28 @@ def search():
     result = dynamo_query(query_parameters)
     print("len(result) =", len(result))
 
-    expanded = expand(i['id'] for i in result)
-    print("expanded[0] = ", json.dumps(expanded[0], indent=4, default=str))
-
     response = [{
         'id': item['id'],
-        'photoUri': photo_uri(item['standard_data']),
+        'photoUri': photoUri(item),
         'latitude': float(item['latitude']),
         'longitude': float(item['longitude']),
-        'displayPrice': int(float(item['standard_data']['ListPrice'])),
+        'displayPrice': int(float(item['listPrice'])),
         'status': item['status'],
         'bedrooms': int(item['bedroomsTotal']),
         'fullBathrooms': (
             int(item['bathroomsTotalInteger']) -
-            int(item['standard_data'].get('BathroomsHalf', '0'))
+            int(item.get('bathroomsHalf', '0'))
         ),
-        'halfBathrooms': int(item['standard_data'].get('BathroomsHalf', '0')),
+        'halfBathrooms': int(item.get('bathroomsHalf', '0')),
         'squareFeet': int(item['livingArea']),
-        'address': address(item['standard_data']),
-        'city': item['standard_data']['City'],
-        'state': item['standard_data']['StateOrProvince'],
-        'unit': (item['standard_data'].get('UnitNumber', None) or
-                 item['standard_data'].get('StreetAdditionalInfo', None)),
+        'address': item['unitAddress'].split(' #')[0],
+        'unit': item[
+            'unitAddress'
+         ].split(' #')[-1] if ' #' in item['unitAddress'] else None,
+        'city': item['city'],
+        'state': item['stateOrProvince'],
         'zip': int(item['postalCode'])
-    } for item in expanded]
+    } for item in result]
 
     for item in response:
         if item['unit'] is None:
