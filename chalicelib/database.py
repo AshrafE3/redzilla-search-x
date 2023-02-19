@@ -34,6 +34,7 @@ def dynamo_query(query_parameters):
         query = {
             'TableName': table_name,
             'IndexName': index_name,
+            'ReturnConsumedCapacity': 'TOTAL',
             'KeyConditionExpression': 'latitude_box = :latitude_box AND longitude BETWEEN :minLongitude AND :maxLongitude',  # noqa
             'FilterExpression': '',
             'ExpressionAttributeValues': {
@@ -94,10 +95,18 @@ def dynamo_query(query_parameters):
         # removes trailing 'AND '
         query['FilterExpression'] = query['FilterExpression'][:-4]
         print("query = ", query)
-        response = dynamodb.query(**query)
-        print("response n = ", len(response['Items']))
 
-        result += map(deserialize, response['Items'])
+        last_key = []
+        consumed_capacity = 0
+        while last_key is not None:
+            response = dynamodb.query(
+                **query, ExclusiveStartKey=last_key
+            ) if last_key else dynamodb.query(**query)
+            result += map(deserialize, response['Items'])
+            consumed_capacity += response['ConsumedCapacity']['CapacityUnits']
+            last_key = response.get('LastEvaluatedKey')
+
+        print("CONSUMED_CAPACITY = ", consumed_capacity)
 
     return result
 
