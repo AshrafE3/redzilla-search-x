@@ -32,14 +32,16 @@ def dynamo_query(query_parameters):
 
         if query_parameters['webAvailable']:
             index_name = 'latitude-longitude-webavailable-index'
+            key_name = 'latitude_box_webavailable'
         else:
             index_name = 'latitude-longitude-index'
+            key_name = 'latitude_box'
 
         query = {
             'TableName': table_name,
             'IndexName': index_name,
             'ReturnConsumedCapacity': 'TOTAL',
-            'KeyConditionExpression': 'latitude_box = :latitude_box AND longitude BETWEEN :minLongitude AND :maxLongitude',  # noqa
+            'KeyConditionExpression': f'{key_name} = :latitude_box AND longitude BETWEEN :minLongitude AND :maxLongitude',  # noqa
             'FilterExpression': '',
             'ExpressionAttributeValues': {
                 ':latitude_box': {"N": latitude_box},
