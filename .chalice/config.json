@@ -9,6 +9,24 @@
       "environment_variables": {
         "DYNAMO_TABLE": "test-rets-search"
       }
+    },
+    "test": {
+      "api_gateway_stage": "api",
+      "environment_variables": {
+        "DYNAMO_TABLE": "test-rets-search"
+      }
+    },
+    "production": {
+      "api_gateway_stage": "api",
+      "environment_variables": {
+        "DYNAMO_TABLE": "prod-rets-search"
+      }
+    },
+    "freelancer": {
+      "api_gateway_stage": "api",
+      "environment_variables": {
+        "DYNAMO_TABLE": "test-rets-search"
+      }
     }
   }
 }
