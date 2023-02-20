@@ -8,7 +8,6 @@ import json
 
 dynamodb = boto3.client('dynamodb')
 table_name = os.environ['DYNAMO_TABLE']
-index_name = 'latitude-longitude-index'
 deser = TypeDeserializer()
 
 
@@ -30,6 +29,11 @@ def dynamo_query(query_parameters):
 
     result = []
     for latitude_box in latitude_boxes:
+
+        if query_parameters['webAvailable']:
+            index_name = 'latitude-longitude-webavailable-index'
+        else:
+            index_name = 'latitude-longitude-index'
 
         query = {
             'TableName': table_name,
@@ -110,28 +114,29 @@ def dynamo_query(query_parameters):
 
     return result
 
+# we currently don't have standard_data_gz in the dynamo database
 
-def expand(id: List[str]) -> List[dict]:
-    id = list(id)
+# def expand(id: List[str]) -> List[dict]:
+#     id = list(id)
 
-    chunked_ids = [id[i:i+100] for i in range(0, len(id), 100)]
-    items = []
-    for chunk in chunked_ids:
-        response = dynamodb.batch_get_item(
-            RequestItems={
-                table_name: {
-                    'Keys': [{'id': {'S': i}} for i in chunk]
-                }
-            }
-        )
-        items.extend(response['Responses'][table_name])
+#     chunked_ids = [id[i:i+100] for i in range(0, len(id), 100)]
+#     items = []
+#     for chunk in chunked_ids:
+#         response = dynamodb.batch_get_item(
+#             RequestItems={
+#                 table_name: {
+#                     'Keys': [{'id': {'S': i}} for i in chunk]
+#                 }
+#             }
+#         )
+#         items.extend(response['Responses'][table_name])
 
-    items = [{
-        **{k: v for k, v in item.items() if k != 'standard_data_gz'},
-        'standard_data': json.loads(gzip.decompress(
-            item['standard_data_gz'].value
-        ).decode('utf-8'))
-     } for item in map(deserialize, items)
-    ]
+#     items = [{
+#         **{k: v for k, v in item.items() if k != 'standard_data_gz'},
+#         'standard_data': json.loads(gzip.decompress(
+#             item['standard_data_gz'].value
+#         ).decode('utf-8'))
+#      } for item in map(deserialize, items)
+#     ]
 
-    return items
+#     return items
